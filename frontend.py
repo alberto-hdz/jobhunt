@@ -7,35 +7,46 @@ API_URL = "http://3.22.241.80"
 
 def login_page():
     st.title("JobHunt - Login")
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-    if st.button("Login"):
-        response = requests.post(f"{API_URL}/token", data={"username": username, "password": password})
-        if response.status_code == 200:
-            st.session_state["token"] = response.json()["access_token"]
-            st.success("Logged in!")
+    if not st.session_state.get("show_register", False):
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        if st.button("Login"):
+            response = requests.post(f"{API_URL}/token", data={"username": username, "password": password})
+            if response.status_code == 200:
+                st.session_state["token"] = response.json()["access_token"]
+                st.session_state["show_register"] = False
+                st.success("Logged in!")
+                st.experimental_rerun()
+            else:
+                st.error("Invalid credentials")
+        if st.button("Go to Register"):
+            st.session_state["show_register"] = True
             st.experimental_rerun()
-        else:
-            st.error("Invalid credentials")
-    if st.button("Register"):
-        st.session_state["show_register"] = True
-    if st.session_state.get("show_register", False):
+    else:
         register_page()
 
 def register_page():
     st.title("JobHunt - Register")
     username = st.text_input("New Username")
     password = st.text_input("New Password", type="password")
-    if st.button("Register"):
-        response = requests.post(f"{API_URL}/register", json={"username": username, "password": password})
-        if response.status_code == 201:
-            st.success("Registered! Please log in.")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Register"):
+            response = requests.post(f"{API_URL}/register", json={"username": username, "password": password})
+            if response.status_code == 201:
+                st.success("Registered! Please log in.")
+                st.session_state["show_register"] = False
+                st.experimental_rerun()
+            else:
+                st.error("Registration failed")
+    with col2:
+        if st.button("Back to Login"):
             st.session_state["show_register"] = False
-        else:
-            st.error("Registration failed")
+            st.experimental_rerun()
 
 def logout():
     st.session_state.pop("token", None)
+    st.session_state["show_register"] = False
     st.success("Logged out!")
     st.experimental_rerun()
 
