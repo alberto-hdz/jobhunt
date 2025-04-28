@@ -1,0 +1,3 @@
+RDS_ENDPOINT: jobhunt.c7ewwo4y0kr8.us-east-2.rds.amazonaws.com
+RDS_USERNAME: albertohdz
+RDS_PASSWORD: H3rN4nD3z1063_
