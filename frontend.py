@@ -59,7 +59,6 @@ def jobs_page():
 
     headers = {"Authorization": f"Bearer {token}"}
 
-    # Add job
     st.subheader("Add Job")
     with st.form("add_job"):
         company = st.text_input("Company")
@@ -73,7 +72,6 @@ def jobs_page():
             else:
                 st.error(f"Error: {response.json().get('detail')}")
 
-    # List jobs
     response = requests.get(f"{API_URL}/jobs", headers=headers)
     if response.status_code == 200:
         jobs = response.json()
@@ -83,7 +81,6 @@ def jobs_page():
         else:
             st.write("No jobs found")
 
-    # Update/Delete jobs
     st.subheader("Update or Delete Job")
     job_display_id = st.number_input("Job ID to update/delete", min_value=1, step=1)
     col1, col2 = st.columns(2)
@@ -113,7 +110,6 @@ def interviews_page():
 
     headers = {"Authorization": f"Bearer {token}"}
 
-    # Add interview
     st.subheader("Add Interview")
     with st.form("add_interview"):
         job_display_id = st.number_input("Job ID", min_value=1, step=1)
@@ -128,7 +124,6 @@ def interviews_page():
             else:
                 st.error(f"Error: {response.json().get('detail')}")
 
-    # List interviews
     response = requests.get(f"{API_URL}/interviews", headers=headers)
     if response.status_code == 200:
         interviews = response.json()
@@ -138,7 +133,6 @@ def interviews_page():
         else:
             st.write("No interviews found")
 
-    # Update/Delete interviews
     st.subheader("Update or Delete Interview")
     interview_display_id = st.number_input("Interview ID to update/delete", min_value=1, step=1)
     col1, col2 = st.columns(2)
@@ -172,7 +166,6 @@ def calendar_page():
 
     headers = {"Authorization": f"Bearer {token}"}
 
-    # Add calendar event
     st.subheader("Add Calendar Event")
     with st.form("add_event"):
         event_type = st.selectbox("Event Type", ["job", "interview"])
@@ -187,7 +180,6 @@ def calendar_page():
             else:
                 st.error(f"Error: {response.json().get('detail')}")
 
-    # List calendar events
     response = requests.get(f"{API_URL}/calendar", headers=headers)
     if response.status_code == 200:
         events = response.json()
@@ -197,7 +189,6 @@ def calendar_page():
         else:
             st.write("No calendar events found")
 
-    # Update/Delete calendar events
     st.subheader("Update or Delete Calendar Event")
     event_display_id = st.number_input("Event ID to update/delete", min_value=1, step=1)
     col1, col2 = st.columns(2)
