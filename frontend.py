@@ -1,169 +1,222 @@
+# frontend.py
 import streamlit as st
 import requests
 import pandas as pd
 from datetime import datetime
-from streamlit_calendar import calendar
-import json
 
-st.title("JobHunt: Job Application Tracker")
-
-# Session state for user
-if "user_id" not in st.session_state:
-    st.session_state.user_id = None
-if "username" not in st.session_state:
-    st.session_state.username = None
-
-# API base URL
 API_URL = "http://3.22.241.80"
 
-# Login/Register
-if not st.session_state.user_id:
-    tab1, tab2 = st.tabs(["Login", "Register"])
-    
-    with tab1:
-        st.header("Login")
-        login_username = st.text_input("Username", key="login_username")
-        login_password = st.text_input("Password", type="password", key="login_password")
-        if st.button("Login"):
-            try:
-                response = requests.post(f"{API_URL}/login", json={"username": login_username, "password": login_password}, timeout=5)
-                if response.status_code == 200:
-                    st.session_state.user_id = response.json()["user_id"]
-                    st.session_state.username = login_username
-                    st.success("Logged in!")
-                    st.rerun()
-                else:
-                    st.error(f"Error: {response.json()['detail']}")
-            except requests.exceptions.RequestException as e:
-                st.error(f"Failed to connect to backend: {str(e)}")
-    
-    with tab2:
-        st.header("Register")
-        reg_username = st.text_input("Username", key="reg_username")
-        reg_password = st.text_input("Password", type="password", key="reg_password")
-        if st.button("Register"):
-            try:
-                response = requests.post(f"{API_URL}/register", json={"username": reg_username, "password": reg_password}, timeout=5)
-                if response.status_code == 200:
-                    st.success("Registered! Please login.")
-                else:
-                    st.error(f"Error: {response.json()['detail']}")
-            except requests.exceptions.RequestException as e:
-                st.error(f"Failed to connect to backend: {str(e)}")
-else:
-    st.header(f"Welcome, {st.session_state.username}!")
-    if st.button("Logout"):
-        st.session_state.user_id = None
-        st.session_state.username = None
-        st.rerun()
-    
-    # Job Management
+def login_page():
+    st.title("JobHunt - Login")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+    if st.button("Login"):
+        response = requests.post(f"{API_URL}/token", data={"username": username, "password": password})
+        if response.status_code == 200:
+            st.session_state["token"] = response.json()["access_token"]
+            st.success("Logged in!")
+            st.experimental_rerun()
+        else:
+            st.error("Invalid credentials")
+    if st.button("Register"):
+        st.session_state["show_register"] = True
+    if st.session_state.get("show_register", False):
+        register_page()
+
+def register_page():
+    st.title("JobHunt - Register")
+    username = st.text_input("New Username")
+    password = st.text_input("New Password", type="password")
+    if st.button("Register"):
+        response = requests.post(f"{API_URL}/register", json={"username": username, "password": password})
+        if response.status_code == 201:
+            st.success("Registered! Please log in.")
+            st.session_state["show_register"] = False
+        else:
+            st.error("Registration failed")
+
+def jobs_page():
+    st.header("Manage Jobs")
+    token = st.session_state.get("token")
+    if not token:
+        st.error("Please log in")
+        return
+
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Add job
     st.subheader("Add Job")
-    company = st.text_input("Company")
-    job_title = st.text_input("Job Title")
-    job_description = st.text_area("Job Description", max_chars=10000)
-    role = st.text_input("Role")
-    if st.button("Add Job"):
-        try:
-            response = requests.post(
-                f"{API_URL}/jobs?user_id={st.session_state.user_id}",
-                json={"company": company, "job_title": job_title, "job_description": job_description, "role": role},
-                timeout=5
-            )
+    with st.form("add_job"):
+        company = st.text_input("Company")
+        position = st.text_input("Position")
+        status = st.selectbox("Status", ["applied", "under consideration", "rejected", "ghosted"])
+        if st.form_submit_button("Add Job"):
+            payload = {"company": company, "position": position, "status": status}
+            response = requests.post(f"{API_URL}/jobs", json=payload, headers=headers)
             if response.status_code == 200:
-                st.success(f"Job added with status: {response.json()['status']} (Job ID: {response.json()['job_id']})")
+                st.success("Job added")
             else:
-                st.error(f"Error: {response.json()['detail']}")
-        except requests.exceptions.RequestException as e:
-            st.error(f"Failed to add job: {str(e)}")
-    
-    # View All Jobs
-    st.subheader("Your Jobs")
-    try:
-        response = requests.get(f"{API_URL}/jobs?user_id={st.session_state.user_id}", timeout=5)
-        if response.status_code == 200:
-            jobs = response.json()
-            if jobs:
-                df = pd.DataFrame(jobs)
-                df['created_at'] = pd.to_datetime(df['created_at']).dt.strftime('%Y-%m-%d %H:%M')
-                st.dataframe(
-                    df[['job_id', 'company', 'job_title', 'role', 'status', 'created_at']],
-                    column_config={
-                        "job_id": "Job ID",
-                        "company": "Company",
-                        "job_title": "Job Title",
-                        "role": "Role",
-                        "status": "Status",
-                        "created_at": "Created At"
-                    },
-                    hide_index=True
-                )
-            else:
-                st.info("No jobs added yet.")
+                st.error(f"Error: {response.json().get('detail')}")
+
+    # List jobs
+    response = requests.get(f"{API_URL}/jobs", headers=headers)
+    if response.status_code == 200:
+        jobs = response.json()
+        if jobs:
+            df = pd.DataFrame(jobs)
+            st.dataframe(df[["id", "company", "position", "status"]])
         else:
-            st.error(f"Error: {response.json()['detail']}")
-    except requests.exceptions.RequestException as e:
-        st.error(f"Failed to fetch jobs: {str(e)}")
-    
-    # Interview Scheduling
-    st.subheader("Schedule Interview")
-    job_id = st.number_input("Job ID", min_value=1, step=1)
-    date_time = st.text_input("Date and Time (YYYY-MM-DD HH:MM)", "2025-05-01 10:00")
-    if st.button("Schedule Interview"):
-        try:
-            response = requests.post(
-                f"{API_URL}/interviews?user_id={st.session_state.user_id}",
-                json={"job_id": job_id, "date_time": date_time},
-                timeout=5
-            )
+            st.write("No jobs found")
+
+    # Update/Delete jobs
+    st.subheader("Update or Delete Job")
+    job_id = st.number_input("Job ID to update/delete", min_value=1, step=1)
+    col1, col2 = st.columns(2)
+    with col1:
+        new_status = st.selectbox("Update Status", ["applied", "under consideration", "rejected", "ghosted"], key="job_status")
+        if st.button("Update Status"):
+            payload = {"status": new_status}
+            response = requests.patch(f"{API_URL}/jobs/{job_id}", json=payload, headers=headers)
             if response.status_code == 200:
-                st.success("Interview scheduled")
+                st.success("Status updated")
             else:
-                st.error(f"Error: {response.json()['detail']}")
-        except requests.exceptions.RequestException as e:
-            st.error(f"Failed to schedule interview: {str(e)}")
-    
-    # Interview Calendar
-    st.subheader("Your Interview Schedule")
-    try:
-        response = requests.get(f"{API_URL}/interviews?user_id={st.session_state.user_id}", timeout=5)
-        if response.status_code == 200:
-            interviews = response.json()
-            if interviews:
-                events = [
-                    {
-                        "title": f"Interview for Job ID {i['job_id']}",
-                        "start": i['date_time'].replace("T", " ")[:16],
-                        "end": i['date_time'].replace("T", " ")[:16]
-                    }
-                    for i in interviews
-                ]
-                calendar_options = {
-                    "headerToolbar": {
-                        "left": "prev,next today",
-                        "center": "title",
-                        "right": "dayGridMonth,timeGridWeek,timeGridDay"
-                    },
-                    "initialView": "dayGridMonth",
-                    "events": events
-                }
-                calendar(events=events, options=calendar_options)
+                st.error(f"Error: {response.json().get('detail')}")
+    with col2:
+        if st.button("Delete Job"):
+            response = requests.delete(f"{API_URL}/jobs/{job_id}", headers=headers)
+            if response.status_code == 204:
+                st.success("Job deleted")
             else:
-                st.info("No interviews scheduled yet.")
+                st.error(f"Error: {response.json().get('detail')}")
+
+def interviews_page():
+    st.header("Manage Interviews")
+    token = st.session_state.get("token")
+    if not token:
+        st.error("Please log in")
+        return
+
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Add interview
+    st.subheader("Add Interview")
+    with st.form("add_interview"):
+        job_id = st.number_input("Job ID", min_value=1, step=1)
+        date = st.text_input("Date (YYYY-MM-DD)", "2025-04-29")
+        time = st.text_input("Time (HH:MM)", "14:00")
+        details = st.text_input("Details", "Phone Interview")
+        if st.form_submit_button("Add Interview"):
+            payload = {"job_id": job_id, "date": date, "time": time, "details": details}
+            response = requests.post(f"{API_URL}/interviews", json=payload, headers=headers)
+            if response.status_code == 200:
+                st.success("Interview added")
+            else:
+                st.error(f"Error: {response.json().get('detail')}")
+
+    # List interviews
+    response = requests.get(f"{API_URL}/interviews", headers=headers)
+    if response.status_code == 200:
+        interviews = response.json()
+        if interviews:
+            df = pd.DataFrame(interviews)
+            st.dataframe(df[["id", "job_id", "date", "time", "details"]])
         else:
-            st.error(f"Error: {response.json()['detail']}")
-    except requests.exceptions.RequestException as e:
-        st.error(f"Failed to fetch interviews: {str(e)}")
-    
-    # Interview Prep
-    st.subheader("Get Interview Prep")
-    prep_job_id = st.number_input("Job ID for Prep", min_value=1, step=1)
-    if st.button("Get Prep"):
-        try:
-            response = requests.get(f"{API_URL}/interview-prep/{prep_job_id}?user_id={st.session_state.user_id}", timeout=5)
-            if response.status_code == 200:
-                st.markdown(response.json()["prep_content"])
+            st.write("No interviews found")
+
+    # Update/Delete interviews
+    st.subheader("Update or Delete Interview")
+    interview_id = st.number_input("Interview ID to update/delete", min_value=1, step=1)
+    col1, col2 = st.columns(2)
+    with col1:
+        with st.form("update_interview"):
+            new_date = st.text_input("New Date (YYYY-MM-DD)", "2025-04-30")
+            new_time = st.text_input("New Time (HH:MM)", "15:00")
+            new_details = st.text_input("New Details", "In-Person Interview")
+            if st.form_submit_button("Update Interview"):
+                payload = {"date": new_date, "time": new_time, "details": new_details}
+                response = requests.patch(f"{API_URL}/interviews/{interview_id}", json=payload, headers=headers)
+                if response.status_code == 200:
+                    st.success("Interview updated")
+                else:
+                    st.error(f"Error: {response.json().get('detail')}")
+    with col2:
+        if st.button("Delete Interview"):
+            response = requests.delete(f"{API_URL}/interviews/{interview_id}", headers=headers)
+            if response.status_code == 204:
+                st.success("Interview deleted")
             else:
-                st.error(f"Error: {response.json()['detail']}")
-        except requests.exceptions.RequestException as e:
-            st.error(f"Failed to get prep: {str(e)}")
+                st.error(f"Error: {response.json().get('detail')}")
+
+def calendar_page():
+    st.header("Calendar")
+    token = st.session_state.get("token")
+    if not token:
+        st.error("Please log in")
+        return
+
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Add calendar event
+    st.subheader("Add Calendar Event")
+    with st.form("add_event"):
+        event_type = st.selectbox("Event Type", ["job", "interview"])
+        date = st.text_input("Date (YYYY-MM-DD)", "2025-04-29")
+        time = st.text_input("Time (HH:MM)", "14:00")
+        details = st.text_input("Details", "Application Deadline")
+        if st.form_submit_button("Add Event"):
+            payload = {"type": event_type, "date": date, "time": time, "details": details}
+            response = requests.post(f"{API_URL}/calendar", json=payload, headers=headers)
+            if response.status_code == 200:
+                st.success("Event added")
+            else:
+                st.error(f"Error: {response.json().get('detail')}")
+
+    # List calendar events
+    response = requests.get(f"{API_URL}/calendar", headers=headers)
+    if response.status_code == 200:
+        events = response.json()
+        if events:
+            df = pd.DataFrame(events)
+            st.dataframe(df[["id", "type", "date", "time", "details"]])
+        else:
+            st.write("No calendar events found")
+
+    # Update/Delete calendar events
+    st.subheader("Update or Delete Calendar Event")
+    event_id = st.number_input("Event ID to update/delete", min_value=1, step=1)
+    col1, col2 = st.columns(2)
+    with col1:
+        with st.form("update_event"):
+            new_type = st.selectbox("Event Type", ["job", "interview"], key="event_type")
+            new_date = st.text_input("New Date (YYYY-MM-DD)", "2025-04-30")
+            new_time = st.text_input("New Time (HH:MM)", "15:00")
+            new_details = st.text_input("New Details", "Application Deadline")
+            if st.form_submit_button("Update Event"):
+                payload = {"type": new_type, "date": new_date, "time": new_time, "details": new_details}
+                response = requests.patch(f"{API_URL}/calendar/{event_id}", json=payload, headers=headers)
+                if response.status_code == 200:
+                    st.success("Event updated")
+                else:
+                    st.error(f"Error: {response.json().get('detail')}")
+    with col2:
+        if st.button("Delete Event"):
+            response = requests.delete(f"{API_URL}/calendar/{event_id}", headers=headers)
+            if response.status_code == 204:
+                st.success("Event deleted")
+            else:
+                st.error(f"Error: {response.json().get('detail')}")
+
+def main():
+    if "token" not in st.session_state:
+        login_page()
+    else:
+        page = st.sidebar.selectbox("Select Page", ["Jobs", "Interviews", "Calendar"])
+        if page == "Jobs":
+            jobs_page()
+        elif page == "Interviews":
+            interviews_page()
+        elif page == "Calendar":
+            calendar_page()
+
+if __name__ == "__main__":
+    main()
