@@ -15,7 +15,7 @@ CREATE TABLE users (
 CREATE TABLE jobs (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    display_id INTEGER NOT NULL, -- User-specific ID
+    display_id INTEGER NOT NULL,
     company VARCHAR(100) NOT NULL,
     position VARCHAR(100) NOT NULL,
     status VARCHAR(50) DEFAULT 'applied',
@@ -27,9 +27,9 @@ CREATE TABLE jobs (
 CREATE TABLE interviews (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    display_id INTEGER NOT NULL, -- User-specific ID
-    job_id INTEGER NOTzial REFERENCES jobs(id) ON DELETE CASCADE,
-    job_display_id INTEGER NOT NULL, -- References jobs.display_id for user-facing display
+    display_id INTEGER NOT NULL,
+    job_id INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+    job_display_id INTEGER NOT NULL,
     date VARCHAR(10) NOT NULL,
     time VARCHAR(5) NOT NULL,
     details TEXT,
@@ -41,7 +41,7 @@ CREATE TABLE interviews (
 CREATE TABLE calendar_events (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    display_id INTEGER NOT NULL, -- User-specific ID
+    display_id INTEGER NOT NULL,
     type VARCHAR(50) NOT NULL,
     date VARCHAR(10) NOT NULL,
     time VARCHAR(5) NOT NULL,
