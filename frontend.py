@@ -1,4 +1,3 @@
-# frontend.py
 import streamlit as st
 import requests
 import pandas as pd
@@ -35,6 +34,11 @@ def register_page():
         else:
             st.error("Registration failed")
 
+def logout():
+    st.session_state.pop("token", None)
+    st.success("Logged out!")
+    st.experimental_rerun()
+
 def jobs_page():
     st.header("Manage Jobs")
     token = st.session_state.get("token")
@@ -64,26 +68,26 @@ def jobs_page():
         jobs = response.json()
         if jobs:
             df = pd.DataFrame(jobs)
-            st.dataframe(df[["id", "company", "position", "status"]])
+            st.dataframe(df[["display_id", "company", "position", "status"]].rename(columns={"display_id": "ID"}))
         else:
             st.write("No jobs found")
 
     # Update/Delete jobs
     st.subheader("Update or Delete Job")
-    job_id = st.number_input("Job ID to update/delete", min_value=1, step=1)
+    job_display_id = st.number_input("Job ID to update/delete", min_value=1, step=1)
     col1, col2 = st.columns(2)
     with col1:
         new_status = st.selectbox("Update Status", ["applied", "under consideration", "rejected", "ghosted"], key="job_status")
         if st.button("Update Status"):
             payload = {"status": new_status}
-            response = requests.patch(f"{API_URL}/jobs/{job_id}", json=payload, headers=headers)
+            response = requests.patch(f"{API_URL}/jobs/{job_display_id}", json=payload, headers=headers)
             if response.status_code == 200:
                 st.success("Status updated")
             else:
                 st.error(f"Error: {response.json().get('detail')}")
     with col2:
         if st.button("Delete Job"):
-            response = requests.delete(f"{API_URL}/jobs/{job_id}", headers=headers)
+            response = requests.delete(f"{API_URL}/jobs/{job_display_id}", headers=headers)
             if response.status_code == 204:
                 st.success("Job deleted")
             else:
@@ -101,12 +105,12 @@ def interviews_page():
     # Add interview
     st.subheader("Add Interview")
     with st.form("add_interview"):
-        job_id = st.number_input("Job ID", min_value=1, step=1)
+        job_display_id = st.number_input("Job ID", min_value=1, step=1)
         date = st.text_input("Date (YYYY-MM-DD)", "2025-04-29")
         time = st.text_input("Time (HH:MM)", "14:00")
         details = st.text_input("Details", "Phone Interview")
         if st.form_submit_button("Add Interview"):
-            payload = {"job_id": job_id, "date": date, "time": time, "details": details}
+            payload = {"job_display_id": job_display_id, "date": date, "time": time, "details": details}
             response = requests.post(f"{API_URL}/interviews", json=payload, headers=headers)
             if response.status_code == 200:
                 st.success("Interview added")
@@ -119,29 +123,30 @@ def interviews_page():
         interviews = response.json()
         if interviews:
             df = pd.DataFrame(interviews)
-            st.dataframe(df[["id", "job_id", "date", "time", "details"]])
+            st.dataframe(df[["display_id", "job_display_id", "date", "time", "details"]].rename(columns={"display_id": "ID", "job_display_id": "Job ID"}))
         else:
             st.write("No interviews found")
 
     # Update/Delete interviews
     st.subheader("Update or Delete Interview")
-    interview_id = st.number_input("Interview ID to update/delete", min_value=1, step=1)
+    interview_display_id = st.number_input("Interview ID to update/delete", min_value=1, step=1)
     col1, col2 = st.columns(2)
     with col1:
         with st.form("update_interview"):
+            new_job_display_id = st.number_input("New Job ID", min_value=1, step=1)
             new_date = st.text_input("New Date (YYYY-MM-DD)", "2025-04-30")
             new_time = st.text_input("New Time (HH:MM)", "15:00")
             new_details = st.text_input("New Details", "In-Person Interview")
             if st.form_submit_button("Update Interview"):
-                payload = {"date": new_date, "time": new_time, "details": new_details}
-                response = requests.patch(f"{API_URL}/interviews/{interview_id}", json=payload, headers=headers)
+                payload = {"job_display_id": new_job_display_id, "date": new_date, "time": new_time, "details": new_details}
+                response = requests.patch(f"{API_URL}/interviews/{interview_display_id}", json=payload, headers=headers)
                 if response.status_code == 200:
                     st.success("Interview updated")
                 else:
                     st.error(f"Error: {response.json().get('detail')}")
     with col2:
         if st.button("Delete Interview"):
-            response = requests.delete(f"{API_URL}/interviews/{interview_id}", headers=headers)
+            response = requests.delete(f"{API_URL}/interviews/{interview_display_id}", headers=headers)
             if response.status_code == 204:
                 st.success("Interview deleted")
             else:
@@ -177,13 +182,13 @@ def calendar_page():
         events = response.json()
         if events:
             df = pd.DataFrame(events)
-            st.dataframe(df[["id", "type", "date", "time", "details"]])
+            st.dataframe(df[["display_id", "type", "date", "time", "details"]].rename(columns={"display_id": "ID"}))
         else:
             st.write("No calendar events found")
 
     # Update/Delete calendar events
     st.subheader("Update or Delete Calendar Event")
-    event_id = st.number_input("Event ID to update/delete", min_value=1, step=1)
+    event_display_id = st.number_input("Event ID to update/delete", min_value=1, step=1)
     col1, col2 = st.columns(2)
     with col1:
         with st.form("update_event"):
@@ -193,14 +198,14 @@ def calendar_page():
             new_details = st.text_input("New Details", "Application Deadline")
             if st.form_submit_button("Update Event"):
                 payload = {"type": new_type, "date": new_date, "time": new_time, "details": new_details}
-                response = requests.patch(f"{API_URL}/calendar/{event_id}", json=payload, headers=headers)
+                response = requests.patch(f"{API_URL}/calendar/{event_display_id}", json=payload, headers=headers)
                 if response.status_code == 200:
                     st.success("Event updated")
                 else:
                     st.error(f"Error: {response.json().get('detail')}")
     with col2:
         if st.button("Delete Event"):
-            response = requests.delete(f"{API_URL}/calendar/{event_id}", headers=headers)
+            response = requests.delete(f"{API_URL}/calendar/{event_display_id}", headers=headers)
             if response.status_code == 204:
                 st.success("Event deleted")
             else:
@@ -210,6 +215,7 @@ def main():
     if "token" not in st.session_state:
         login_page()
     else:
+        st.sidebar.button("Logout", on_click=logout)
         page = st.sidebar.selectbox("Select Page", ["Jobs", "Interviews", "Calendar"])
         if page == "Jobs":
             jobs_page()

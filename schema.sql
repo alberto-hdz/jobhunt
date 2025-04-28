@@ -1,33 +1,50 @@
--- schema.sql
-CREATE TABLE IF NOT EXISTS users (
+-- Drop existing tables to reset
+DROP TABLE IF EXISTS calendar_events;
+DROP TABLE IF EXISTS interviews;
+DROP TABLE IF EXISTS jobs;
+DROP TABLE IF EXISTS users;
+
+-- Users table
+CREATE TABLE users (
     id SERIAL PRIMARY KEY,
-    username VARCHAR(255) UNIQUE NOT NULL,
-    hashed_password VARCHAR(255) NOT NULL
+    username VARCHAR(50) UNIQUE NOT NULL,
+    hashed_password TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS jobs (
+-- Jobs table with display_id
+CREATE TABLE jobs (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id),
-    company VARCHAR(255) NOT NULL,
-    position VARCHAR(255) NOT NULL,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    display_id INTEGER NOT NULL, -- User-specific ID
+    company VARCHAR(100) NOT NULL,
+    position VARCHAR(100) NOT NULL,
     status VARCHAR(50) DEFAULT 'applied',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, display_id)
 );
 
-CREATE TABLE IF NOT EXISTS interviews (
+-- Interviews table with display_id
+CREATE TABLE interviews (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id),
-    job_id INTEGER REFERENCES jobs(id),
-    date VARCHAR(50) NOT NULL,
-    time VARCHAR(50) NOT NULL,
-    details TEXT
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    display_id INTEGER NOT NULL, -- User-specific ID
+    job_id INTEGER NOTzial REFERENCES jobs(id) ON DELETE CASCADE,
+    job_display_id INTEGER NOT NULL, -- References jobs.display_id for user-facing display
+    date VARCHAR(10) NOT NULL,
+    time VARCHAR(5) NOT NULL,
+    details TEXT,
+    UNIQUE(user_id, display_id),
+    FOREIGN KEY (user_id, job_display_id) REFERENCES jobs(user_id, display_id)
 );
 
-CREATE TABLE IF NOT EXISTS calendar_events (
+-- Calendar events table with display_id
+CREATE TABLE calendar_events (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id),
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    display_id INTEGER NOT NULL, -- User-specific ID
     type VARCHAR(50) NOT NULL,
-    date VARCHAR(50) NOT NULL,
-    time VARCHAR(50) NOT NULL,
-    details TEXT
+    date VARCHAR(10) NOT NULL,
+    time VARCHAR(5) NOT NULL,
+    details TEXT,
+    UNIQUE(user_id, display_id)
 );
